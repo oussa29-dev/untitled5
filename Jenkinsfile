@@ -1,93 +1,76 @@
 pipeline {
-    agent any
-
-    tools {
-        jdk 'JDK11'  // Assurez-vous que le JDK est configuré
+  agent any
+  stages {
+    stage('Test') {
+      steps {
+        echo 'Running tests with Gradle'
+        bat './gradlew clean'
+        bat './gradlew test'
+        bat './gradlew jacocoTestReport'
+        junit '**/build/test-results/test/*.xml'
+        cucumber '**/reports/*.json'
+      }
     }
 
-    environment {
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = 'your-sonar-token'
-        MAVEN_REPO_URL = 'https://mymavenrepo.com/'
-        MAVEN_REPO_USER = 'username'
-        MAVEN_REPO_PASSWORD = 'password'
-        SLACK_CHANNEL = '#your-slack-channel'
+    stage('Code Analysis') {
+      steps {
+        echo 'Analyse code with SonarQube'
+        script {
+          withSonarQubeEnv('sonar') {
+            bat './gradlew sonar --stacktrace'
+          }
+        }
+
+      }
     }
 
-    stages {
-        stage('Test') {
-            steps {
-                script {
-                    echo 'Running Unit Tests...'
-                    sh './gradlew test'
-                }
-                archiveArtifacts artifacts: '**/build/reports/tests/*.html', allowEmptyArchive: true
-                cucumber buildStatus: 'SUCCESS', fileIncludePattern: '**/build/reports/cucumber/*.json'
-            }
+    stage('Code Quality') {
+      steps {
+        script {
+          def qg = waitForQualityGate()
+          if (qg.status != 'OK') {
+            error "Pipeline failed due to Quality Gate status: ${qg.status}"
+          }
         }
-        stage('Code Analysis') {
-            steps {
-                script {
-                    echo 'Running SonarQube Analysis...'
-                    sh './gradlew sonarqube'
-                }
-            }
-        }
-        stage('Code Quality') {
-            steps {
-                script {
-                    echo 'Checking Quality Gates...'
-                    def qg = waitForQualityGate()
-                    if (qg.status != 'OK') {
-                        error "Pipeline stopped due to Quality Gate failure: ${qg.status}"
-                    }
-                }
-            }
-        }
-        stage('Build') {
-            steps {
-                script {
-                    echo 'Building JAR and Documentation...'
-                    sh './gradlew jar'
-                    sh './gradlew javadoc'
-                }
-                archiveArtifacts artifacts: '**/build/libs/*.jar', allowEmptyArchive: false
-                archiveArtifacts artifacts: '**/build/docs/javadoc/**/*', allowEmptyArchive: false
-            }
-        }
-        stage('Deploy') {
-            steps {
-                script {
-                    echo 'Deploying to Maven Repository...'
-                    sh """
-                    curl -u ${MAVEN_REPO_USER}:${MAVEN_REPO_PASSWORD} \
-                        -T build/libs/*.jar ${MAVEN_REPO_URL}
-                    """
-                }
-            }
-        }
-        stage('Notification') {
-            steps {
-                script {
-                    echo 'Sending Notifications...'
-                    mail to: 'team@example.com',
-                         subject: 'Deployment Successful',
-                         body: 'The application has been successfully deployed.'
-                    slackSend channel: "${SLACK_CHANNEL}", message: 'Deployment successful!'
-                }
-            }
-        }
+
+      }
     }
 
-    post {
-        failure {
-            script {
-                echo 'Pipeline Failed. Sending Failure Notification...'
-                mail to: 'team@example.com',
-                     subject: 'Pipeline Failed',
-                     body: 'The pipeline failed. Please check Jenkins logs.'
-                slackSend channel: "${SLACK_CHANNEL}", message: 'Pipeline failed!'
-            }
-        }
+    stage('Build') {
+      steps {
+        echo 'Running Build...'
+        bat './gradlew jar'
+        bat './gradlew javadoc'
+        archiveArtifacts(artifacts: 'build/reports/tests/test/index.html', allowEmptyArchive: true)
+        archiveArtifacts(artifacts: 'build/libs/*.jar', allowEmptyArchive: true)
+      }
     }
+
+    stage('Deploy') {
+      steps {
+        echo 'Start Deployement on MyMavenRepo...'
+        bat './gradlew publish'
+      }
+    }
+
+    stage('Notification') {
+      steps {
+        echo 'Send Notifications To the Team...'
+        mail(subject: 'integration', body: 'Déploiement réussi', to: 'ko_benkhaoua@esi.dz')
+        slackSend(message: 'Déploiement réussi', sendAsText: true)
+      }
+    }
+
+  }
+  environment {
+    sonarQube = 'sonar'
+  }
+  post {
+    failure {
+      echo 'Pipeline Failed'
+      mail(subject: 'ERREUR', body: 'ERREUR', to: 'ko_benkhaoua@esi.dz')
+      slackSend(message: 'ERREUR', sendAsText: true)
+    }
+
+  }
 }
