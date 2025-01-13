@@ -34,7 +34,7 @@ sonarqube {
         property "sonar.host.url", "http://197.140.142.82:9000"
         property "sonar.login", "d0578c8888ba6317fb83785311e5850a1a620054"
         property "sonar.sources", "src/main/java"
-        property "sonar.skipCompile" , 'true'
+    
         property "sonar.tests", "src/test/java"
         property "sonar.java.binaries", "build/classes/java"
         property "sonar.skipCompile" ,"true"
