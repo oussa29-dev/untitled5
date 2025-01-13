@@ -9,7 +9,7 @@ Feature: Matrix
       | 4    | 5  | 6      |
       | 7    | 8  | 12     |
     Then The result of determinant is -9
-
+    
 
   Scenario: Transpose
     When I compute transpose of
