@@ -1,76 +1,93 @@
 pipeline {
-  agent any
-  stages {
-    stage('Test') {
-      steps {
-        echo 'Running tests with Gradle'
-        bat './gradlew clean'
-        bat './gradlew test'
-        bat './gradlew jacocoTestReport'
-        junit '**/build/test-results/test/*.xml'
-        cucumber '**/reports/*.json'
-      }
+    agent any // This specifies that the pipeline can run on any available agent
+
+    environment {
+        SONARQUBE = 'sonar'  // This must match the name you gave in Jenkins config
+        username = "myMavenRepo"  // Replace with your actual Jenkins credential ID
+        password= "test0005" // Replace with your actual Jenkins credential ID
     }
 
-    stage('Code Analysis') {
-      steps {
-        echo 'Analyse code with SonarQube'
-        script {
-          withSonarQubeEnv('sonar') {
-            bat './gradlew sonar --stacktrace'
-          }
+    stages {
+        // Stage for running tests
+        stage('TEST') {
+            steps {
+                script {
+                    echo 'Running tests...'
+                    // Run your tests here, e.g. using Gradle or Maven
+                    sh 'chmod +x gradlew'
+                    sh './gradlew test'
+
+
+                }
+            }
         }
 
-      }
-    }
 
-    stage('Code Quality') {
-      steps {
-        script {
-          def qg = waitForQualityGate()
-          if (qg.status != 'OK') {
-            error "Pipeline failed due to Quality Gate status: ${qg.status}"
-          }
+        stage('CODEANALYSIS') {
+            steps {
+                script {
+                    withSonarQubeEnv('sonarQube') {
+                        sh './gradlew sonarqube'  // Make sure your Gradle configuration includes SonarQube task
+                    }
+                }
+            }
         }
 
-      }
+        // Stage for Code Quality (SonarQube Quality Gate Check)
+        stage('CODEQUALITY') {
+            steps {
+                script {
+                    echo 'Checking SonarQube Quality Gate...'
+                    def qualityGate = waitForQualityGate()
+                    if (qualityGate.status != 'OK') {
+                        error "SonarQube Quality Gate failed: ${qualityGate.status}"
+                    }
+                }
+            }
+        }
+
+        // Stage for building the project
+        stage('BUILD') {
+            steps {
+                script {
+                    echo 'Building the project...'
+                    // Build your project, e.g., using Gradle or Maven
+                    sh './gradlew build'
+                }
+            }
+        }
+
+        // Stage for deploying the application
+        stage('DEPLOY') {
+            steps {
+                script {
+                    echo 'Deploying the application...'
+                    sh './gradlew publish'  // Customize with your deployment command
+                }
+            }
+        }
+
+        // Stage for notifications (e.g., email, Slack)
+        stage('NOTIFY') {
+            steps {
+                script {
+                    echo 'Sending email notification...'
+                    // Call Gradle sendMail task
+                    sh './gradlew sendMail'
+                }
+            }
+        }
     }
 
-    stage('Build') {
-      steps {
-        echo 'Running Build...'
-        bat './gradlew jar'
-        bat './gradlew javadoc'
-        archiveArtifacts(artifacts: 'build/reports/tests/test/index.html', allowEmptyArchive: true)
-        archiveArtifacts(artifacts: 'build/libs/*.jar', allowEmptyArchive: true)
-      }
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
     }
-
-    stage('Deploy') {
-      steps {
-        echo 'Start Deployement on MyMavenRepo...'
-        bat './gradlew publish'
-      }
-    }
-
-    stage('Notification') {
-      steps {
-        echo 'Send Notifications To the Team...'
-        mail(subject: 'integration', body: 'Déploiement réussi', to: 'ko_benkhaoua@esi.dz')
-        slackSend(message: 'Déploiement réussi', sendAsText: true)
-      }
-    }
-
-  }
-  environment {
-    sonarQube = 'sonar'
-  }
-  post {
-    failure {
-      echo 'Pipeline Failed'
-      mail(subject: 'ERREUR', body: 'ERREUR', to: 'ko_benkhaoua@esi.dz')
-      slackSend(message: 'ERREUR', sendAsText: true)
-    }
-
-  }
 }
