@@ -23,16 +23,7 @@ pipeline {
         }
 
 
-        stage('CODEANALYSIS') {
-            steps {
-                script {
-                    withSonarQubeEnv('sonarQube') {
-                        sh './gradlew sonarqube'  // Make sure your Gradle configuration includes SonarQube task
-                    }
-                }
-            }
-        }
-
+      
         // Stage for Code Quality (SonarQube Quality Gate Check)
         stage('CODEQUALITY') {
             steps {
