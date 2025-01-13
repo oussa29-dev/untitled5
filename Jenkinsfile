@@ -6,7 +6,7 @@ pipeline {
         username = "myMavenRepo"  // Replace with your actual Jenkins credential ID
         password= "test0005" // Replace with your actual Jenkins credential ID
     }
-
+   
     stages {
         // Stage for running tests
         stage('TEST') {
