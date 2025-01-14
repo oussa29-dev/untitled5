@@ -16,7 +16,7 @@ pipeline {
                     // Run your tests here, e.g. using Gradle or Maven
                     sh 'chmod +x gradlew'
                     sh './gradlew test'
-
+                    cucumber '**/reports/*.json'
 
                 }
             }
