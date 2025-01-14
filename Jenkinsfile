@@ -22,7 +22,15 @@ pipeline {
             }
         }
 
-
+stage('CODEANALYSIS') {
+            steps {
+                script {
+                    withSonarQubeEnv('sonarQube') {
+                        sh './gradlew sonarqube'
+                    }
+                }
+            }
+        }
       
         // Stage for Code Quality (SonarQube Quality Gate Check)
         stage('CODEQUALITY') {
